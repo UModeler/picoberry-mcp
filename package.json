@@ -1,0 +1,55 @@
+{
+  "name": "@picoberry/mcp-server",
+  "version": "0.1.0",
+  "description": "PicoBerry MCP server — generate game-ready 3D models, images, and animations from any MCP client (Claude Code, Cursor, Claude Desktop). Multi-engine (Tripo, Meshy, Hunyuan, …); a thin wrapper over the PicoBerry /v1 API.",
+  "type": "module",
+  "bin": {
+    "picoberry-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "picoberry",
+    "3d",
+    "ai",
+    "text-to-3d",
+    "image-to-3d",
+    "game-assets",
+    "unity",
+    "blender"
+  ],
+  "license": "MIT",
+  "author": "UModeler, Inc. (https://picoberry.ai)",
+  "homepage": "https://picoberry.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UModeler/picoberry-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/UModeler/picoberry-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}
