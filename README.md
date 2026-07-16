@@ -3,10 +3,13 @@
 Generate **game-ready 3D models, images, and animations** from any MCP client —
 Claude Code, Cursor, Claude Desktop, Cline — with no HTTP glue. A thin wrapper
 over the [PicoBerry](https://picoberry.ai) `/v1` API, so you get PicoBerry's
-multi-engine pipeline (Tripo, Meshy, Hunyuan, …) directly inside your agent.
+multi-engine pipeline directly inside your agent. Several 3D and image engines
+sit behind one API; call `list_models` for the live set and each engine's cost.
 
-> Unity charges for its MCP behind a subscription. **PicoBerry's MCP is free —
-> you only pay for what you generate**, per-engine, in credits you can see.
+> **There's no separate subscription for the MCP or the API.** Generation spends
+> the same prepaid PicoBerry credits as the web app, per engine, at rates you can
+> read with `list_models` before you spend anything. (Using the API does require
+> a completed purchase — see [Get an API key](#get-an-api-key).)
 
 ## Install
 
