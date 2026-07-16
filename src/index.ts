@@ -18,9 +18,14 @@ import { z } from "zod";
 import { PicoBerryClient, PicoBerryError } from "./client.js";
 
 const API_KEY = process.env.PICOBERRY_API_KEY;
+// Default to the documented, branded host. `saas-api.umodeler.com` serves the
+// same API and was the previous default, but it appears in no public doc — a
+// registry install that omits PICOBERRY_API_BASE (it is optional) would have
+// been silently pinned to a hostname nobody could look up, and would break the
+// day that host is retired.
 const API_BASE =
   process.env.PICOBERRY_API_BASE?.replace(/\/+$/, "") ??
-  "https://saas-api.umodeler.com";
+  "https://api.picoberry.ai";
 
 if (!API_KEY) {
   console.error(

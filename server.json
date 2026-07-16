@@ -21,13 +21,13 @@
       "environmentVariables": [
         {
           "name": "PICOBERRY_API_KEY",
-          "description": "PicoBerry API key (pb_live_...). Create one at picoberry.ai under Profile > API Keys. Requires a paid plan.",
+          "description": "PicoBerry API key (pb_live_...). Create one at https://picoberry.ai/dashboard/api-keys. Requires a completed purchase (a subscription or a one-off credit pack) or an active paid subscription.",
           "isRequired": true,
           "isSecret": true
         },
         {
           "name": "PICOBERRY_API_BASE",
-          "description": "Override the API base URL. Defaults to the PicoBerry production API.",
+          "description": "Override the API base URL. Defaults to https://api.picoberry.ai — leave unset unless you were given a different host.",
           "isRequired": false,
           "isSecret": false
         }
