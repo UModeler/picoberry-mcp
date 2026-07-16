@@ -2,7 +2,7 @@
   "name": "@picoberry/mcp-server",
   "version": "0.1.1",
   "description": "PicoBerry MCP server — generate game-ready 3D models, images, and animations from any MCP client (Claude Code, Cursor, Claude Desktop). Multi-engine (Tripo, Meshy, Hunyuan, …); a thin wrapper over the PicoBerry /v1 API.",
-  "mcpName": "io.github.umodeler/picoberry-mcp",
+  "mcpName": "io.github.UModeler/picoberry-mcp",
   "type": "module",
   "bin": {
     "picoberry-mcp": "dist/index.js"

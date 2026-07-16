@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.umodeler/picoberry-mcp",
+  "name": "io.github.UModeler/picoberry-mcp",
   "title": "PicoBerry",
   "description": "Generate game-ready 3D models, images, and animations. Multi-engine, one API.",
   "version": "0.1.1",
