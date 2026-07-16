@@ -3,18 +3,26 @@
   "name": "io.github.UModeler/picoberry-mcp",
   "title": "PicoBerry",
   "description": "Generate game-ready 3D models, images, and animations. Multi-engine, one API.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "repository": {
     "url": "https://github.com/UModeler/picoberry-mcp",
     "source": "github"
   },
   "websiteUrl": "https://picoberry.ai",
+  "icons": [
+    {
+      "src": "https://picoberry.ai/icons/apple-icon.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"],
+      "theme": "dark"
+    }
+  ],
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@picoberry/mcp-server",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "transport": {
         "type": "stdio"
       },
