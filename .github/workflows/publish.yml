@@ -1,0 +1,145 @@
+# Publish the package to npm and the official MCP registry.
+#
+# Run it from Actions → "Publish" → Run workflow (or push a `v*` tag). It does the
+# two publishes in the only order that works: npm first, then the registry — the
+# registry validates by fetching `registry.npmjs.org/<pkg>/<version>` and matching
+# that release's `mcpName` against server.json's `name`, so a registry publish
+# before the npm publish fails validation.
+#
+# Auth:
+#   - npm      → NPM_TOKEN secret (Automation token). One-time setup.
+#   - registry → GitHub OIDC. No secret, no browser. `id-token: write` lets
+#                mcp-publisher exchange an Actions OIDC token, and the registry
+#                grants `io.github.${repository_owner}/*` from the token's
+#                repository_owner claim — i.e. `io.github.UModeler/*`, which is
+#                what server.json's name is under. This also sidesteps the
+#                org-Owner requirement of the interactive `login github` flow.
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validate and build only — publish nothing"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required: mcp-publisher OIDC + npm provenance
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Fail loudly here rather than half-way through publishing. These are the
+      # exact invariants the registry enforces, checked before anything is
+      # released — a mismatch after `npm publish` would strand a burnt version
+      # number (npm metadata is immutable per version).
+      - name: Check package.json / server.json agree
+        run: |
+          set -euo pipefail
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VER=$(node -p "require('./package.json').version")
+          MCP_NAME=$(node -p "require('./package.json').mcpName ?? ''")
+          SRV_NAME=$(node -p "require('./server.json').name")
+          SRV_VER=$(node -p "require('./server.json').version")
+          SRV_PKG=$(node -p "require('./server.json').packages[0].identifier")
+          SRV_PKG_VER=$(node -p "require('./server.json').packages[0].version")
+
+          fail() { echo "::error::$1"; exit 1; }
+
+          [ -n "$MCP_NAME" ] || fail "package.json has no mcpName — the registry's npm validator reads it off the published release and matches it against server.json name."
+          [ "$MCP_NAME" = "$SRV_NAME" ] || fail "mcpName ($MCP_NAME) != server.json name ($SRV_NAME)"
+          [ "$SRV_PKG" = "$PKG_NAME" ] || fail "server.json packages[0].identifier ($SRV_PKG) != package name ($PKG_NAME)"
+          [ "$PKG_VER" = "$SRV_VER" ] || fail "package.json version ($PKG_VER) != server.json version ($SRV_VER)"
+          [ "$PKG_VER" = "$SRV_PKG_VER" ] || fail "package.json version ($PKG_VER) != server.json packages[0].version ($SRV_PKG_VER)"
+
+          # The namespace is matched byte-exactly (strings.HasPrefix against
+          # `io.github.<owner>/*`), so a lowercased owner 403s at publish.
+          EXPECT="io.github.${GITHUB_REPOSITORY_OWNER}/"
+          case "$SRV_NAME" in
+            "$EXPECT"*) ;;
+            *) fail "server.json name ($SRV_NAME) must start with $EXPECT — the registry grants that prefix from the OIDC repository_owner claim and compares case-sensitively." ;;
+          esac
+
+          # npm versions are immutable; republishing an existing one always fails.
+          if npm view "${PKG_NAME}@${PKG_VER}" version >/dev/null 2>&1; then
+            fail "${PKG_NAME}@${PKG_VER} is already on npm. Bump the version — npm will not accept a re-publish."
+          fi
+          echo "OK — $SRV_NAME @ $PKG_VER"
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --version || true
+        env:
+          MCP_PUBLISHER_VERSION: 1.8.0
+
+      # npm's CDN is read-through; the registry validator fetches the version
+      # metadata directly, so give the just-published version a moment to be
+      # visible before validation runs against it.
+      - name: Wait for npm to serve the new version
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VER=$(node -p "require('./package.json').version")
+          for i in $(seq 1 30); do
+            if [ "$(curl -fsS "https://registry.npmjs.org/${PKG_NAME}/${PKG_VER}" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).mcpName ?? ''")" = "$(node -p "require('./package.json').mcpName")" ]; then
+              echo "npm is serving ${PKG_VER} with mcpName"; exit 0
+            fi
+            echo "waiting for npm ($i/30)…"; sleep 10
+          done
+          echo "::error::npm never served ${PKG_NAME}@${PKG_VER} with an mcpName — the registry publish would fail validation."
+          exit 1
+
+      - name: Publish to the MCP registry
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
+      - name: Summary
+        if: ${{ !inputs.dry_run }}
+        run: |
+          NAME=$(node -p "require('./server.json').name")
+          VER=$(node -p "require('./package.json').version")
+          {
+            echo "### Published"
+            echo ""
+            echo "- npm: \`$(node -p "require('./package.json').name")@${VER}\`"
+            echo "- registry: \`${NAME}\`"
+            echo ""
+            echo "Verify: https://registry.modelcontextprotocol.io/v0/servers?search=picoberry"
+            echo ""
+            echo "Next, by hand: claim the Glama listing —"
+            echo "https://glama.ai/mcp/servers/UModeler/picoberry-mcp"
+            echo "(unclaimed servers have limited discoverability, and the"
+            echo "awesome-mcp-servers CI gates its PRs on a Glama badge)."
+          } >> "$GITHUB_STEP_SUMMARY"

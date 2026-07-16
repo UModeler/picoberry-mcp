@@ -31,16 +31,20 @@ Cursor uses the same shape in `~/.cursor/mcp.json`.
 
 ### Get an API key
 
-Sign in at <https://picoberry.ai> → avatar (top-right) → **Profile → API Keys**
-→ **Create key**. The key is shown once — copy it immediately. Treat it like a
-password. (API keys require a paid PicoBerry plan.)
+Sign in at <https://picoberry.ai>, open the **[API Keys](https://picoberry.ai/dashboard/api-keys)**
+tab in your dashboard, and hit **Create key**. The key is shown once — copy it
+immediately and treat it like a password.
+
+API access needs a completed purchase: a subscription **or a one-off credit
+pack**. A purchase entitles you permanently — you don't need a *current*
+subscription. (An active paid subscription works too, of course.)
 
 ### Environment variables
 
 | Var | Required | Default | Notes |
 |-----|----------|---------|-------|
 | `PICOBERRY_API_KEY` | ✅ | — | `pb_live_...` |
-| `PICOBERRY_API_BASE` | — | `https://saas-api.umodeler.com` | point at dev with `https://saas-dev-api.umodeler.com` |
+| `PICOBERRY_API_BASE` | — | `https://api.picoberry.ai` | leave unset unless you were given a different host |
 
 ## Tools
 
@@ -106,6 +110,37 @@ npm install
 npm run build      # tsc → dist/
 PICOBERRY_API_KEY=pb_live_... npm start
 ```
+
+## Release
+
+Run **Actions → Publish → Run workflow** (or push a `v*` tag). It publishes to
+npm and then to the official MCP registry, in that order — the registry
+validates by fetching the package's npm metadata and matching its `mcpName`
+against `server.json`'s `name`, so npm has to land first. A guard step checks
+every invariant (name/version agreement, namespace casing, version not already
+on npm) *before* anything is published, because npm versions are immutable and a
+failed half-publish burns the number.
+
+Bump `version` in **both** `package.json` and `server.json` (`version` and
+`packages[0].version`) — the guard fails the run if they disagree.
+
+**One-time setup**
+
+- `NPM_TOKEN` repo secret — an npm **Automation** token with publish rights on
+  the `@picoberry` scope.
+- Nothing for the registry. It authenticates over GitHub OIDC: the workflow's
+  `id-token: write` lets `mcp-publisher` exchange an Actions token, and the
+  registry grants `io.github.<repository_owner>/*` from the token's
+  `repository_owner` claim. That covers `io.github.UModeler/picoberry-mcp`, and
+  it avoids the interactive browser login (which additionally requires org
+  Owner).
+
+> The namespace is compared **byte-exactly** — `io.github.UModeler/...`, matching
+> the GitHub org's login. A lowercased `io.github.umodeler/...` is rejected 403.
+
+**After publishing**, claim the [Glama listing](https://glama.ai/mcp/servers/UModeler/picoberry-mcp)
+— unclaimed servers get limited discoverability, and `awesome-mcp-servers` gates
+its PRs on a Glama badge in CI.
 
 ## License
 
