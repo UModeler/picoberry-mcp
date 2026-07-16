@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.umodeler/picoberry-mcp",
+  "title": "PicoBerry",
+  "description": "Generate game-ready 3D models, images, and animations. Multi-engine, one API.",
+  "version": "0.1.1",
+  "repository": {
+    "url": "https://github.com/UModeler/picoberry-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://picoberry.ai",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@picoberry/mcp-server",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PICOBERRY_API_KEY",
+          "description": "PicoBerry API key (pb_live_...). Create one at picoberry.ai under Profile > API Keys. Requires a paid plan.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "PICOBERRY_API_BASE",
+          "description": "Override the API base URL. Defaults to the PicoBerry production API.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
