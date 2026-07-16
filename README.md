@@ -124,16 +124,32 @@ failed half-publish burns the number.
 Bump `version` in **both** `package.json` and `server.json` (`version` and
 `packages[0].version`) — the guard fails the run if they disagree.
 
-**One-time setup**
+**One-time setup — no secrets.** Both publishes authenticate over the workflow's
+GitHub OIDC token (`id-token: write`). There is nothing to store or rotate.
 
-- `NPM_TOKEN` repo secret — an npm **Automation** token with publish rights on
-  the `@picoberry` scope.
-- Nothing for the registry. It authenticates over GitHub OIDC: the workflow's
-  `id-token: write` lets `mcp-publisher` exchange an Actions token, and the
-  registry grants `io.github.<repository_owner>/*` from the token's
-  `repository_owner` claim. That covers `io.github.UModeler/picoberry-mcp`, and
-  it avoids the interactive browser login (which additionally requires org
-  Owner).
+The only step is telling npm to trust this workflow. On npmjs.com go to
+**@picoberry/mcp-server → Settings → Trusted publishing → GitHub Actions** and
+enter:
+
+| Field | Value |
+|-------|-------|
+| Organization or user | `UModeler` |
+| Repository | `picoberry-mcp` |
+| Workflow filename | `publish.yml` |
+| Environment name | *(leave empty)* |
+| Allowed actions | `npm publish` |
+
+The workflow filename must match exactly — it is part of what npm verifies.
+
+The MCP registry needs no setup at all: `mcp-publisher` exchanges the Actions
+OIDC token, and the registry grants `io.github.<repository_owner>/*` from the
+token's `repository_owner` claim. That covers `io.github.UModeler/picoberry-mcp`
+and avoids the interactive browser login (which additionally requires org Owner).
+
+> Trusted Publishing needs **npm >= 11.5.1**, so the workflow runs on **Node 24**
+> (npm 11.x). Node 22 still bundles npm 10.9 and would fail — the `node-version`
+> pin is load-bearing. A guard step fails the run early if the runner ever ships
+> an older npm.
 
 > The namespace is compared **byte-exactly** — `io.github.UModeler/...`, matching
 > the GitHub org's login. A lowercased `io.github.umodeler/...` is rejected 403.

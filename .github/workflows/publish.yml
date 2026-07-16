@@ -6,14 +6,20 @@
 # that release's `mcpName` against server.json's `name`, so a registry publish
 # before the npm publish fails validation.
 #
-# Auth:
-#   - npm      → NPM_TOKEN secret (Automation token). One-time setup.
-#   - registry → GitHub OIDC. No secret, no browser. `id-token: write` lets
-#                mcp-publisher exchange an Actions OIDC token, and the registry
+# Auth — no secrets. Both publishes use GitHub OIDC off `id-token: write`:
+#   - npm      → Trusted Publishing. Configured once on npmjs.com against this
+#                repo + this workflow filename; npm then trusts the Actions OIDC
+#                token. No NPM_TOKEN to store, leak, or rotate. Requires npm
+#                >= 11.5.1, which is why this runs on Node 24 (npm 11.x) — Node
+#                22 still bundles npm 10.9 and would fail.
+#   - registry → mcp-publisher exchanges an Actions OIDC token; the registry
 #                grants `io.github.${repository_owner}/*` from the token's
 #                repository_owner claim — i.e. `io.github.UModeler/*`, which is
 #                what server.json's name is under. This also sidesteps the
 #                org-Owner requirement of the interactive `login github` flow.
+#
+# If npm Trusted Publishing is ever unavailable, the fallback is an NPM_TOKEN
+# secret + `env: NODE_AUTH_TOKEN` on the publish step — but prefer OIDC.
 name: Publish
 
 on:
@@ -37,10 +43,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 24 ships npm 11.x. Trusted Publishing needs npm >= 11.5.1, and Node
+      # 22 still bundles npm 10.9 — pinning the major here is load-bearing, not
+      # cosmetic.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
+
+      - name: Check npm supports Trusted Publishing
+        run: |
+          set -euo pipefail
+          NPM_VER=$(npm --version)
+          echo "npm ${NPM_VER}, node $(node --version)"
+          MIN=11.5.1
+          # Lowest of {MIN, actual} must be MIN, i.e. actual >= MIN.
+          if [ "$(printf '%s\n%s\n' "$MIN" "$NPM_VER" | sort -V | head -1)" != "$MIN" ]; then
+            echo "::error::npm ${NPM_VER} is too old for Trusted Publishing (need >= ${MIN}). The runner image changed — bump node-version, or install npm explicitly."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci
@@ -85,11 +106,12 @@ jobs:
           fi
           echo "OK — $SRV_NAME @ $PKG_VER"
 
+      # No NODE_AUTH_TOKEN — npm authenticates via Trusted Publishing over the
+      # Actions OIDC token. Provenance is generated automatically for a public
+      # package from a public repo.
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
 
       - name: Install mcp-publisher
         run: |
