@@ -1,4 +1,8 @@
-# PicoBerry MCP Server
+<p align="center">
+  <img src=".github/logo.png" alt="PicoBerry" width="96" height="96">
+</p>
+
+<h1 align="center">PicoBerry MCP Server</h1>
 
 Generate **game-ready 3D models, images, and animations** from any MCP client —
 Claude Code, Cursor, Claude Desktop, Cline — with no HTTP glue. A thin wrapper
