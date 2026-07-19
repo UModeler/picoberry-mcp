@@ -65,7 +65,7 @@ async function run(fn: () => Promise<unknown>): Promise<ToolResult> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const server = new McpServer({ name: "picoberry", version: "0.1.0" });
+const server = new McpServer({ name: "picoberry", version: "0.1.3" });
 
 /* ------------------------------ Discovery ------------------------------ */
 
@@ -177,44 +177,72 @@ server.tool(
 
 server.tool(
   "generate_3d_from_image",
-  "Generate a 3D model (GLB) from a single image (async). Provide EITHER `image_url` " +
-    "(any public http/https image, or a prior generation's files.image) OR `image_path` " +
-    "(a local file, uploaded directly — no hosting needed). Then wait_for_asset and read " +
-    "files.model. Costs credits — see list_models(category='3d').",
+  "Generate a 3D model (GLB) from one image, or from 2–4 views of the same subject " +
+    "(multi-view → higher-fidelity geometry), async. Single: `image_url` (any public " +
+    "http/https image, or a prior generation's files.image) OR `image_path` (a local file, " +
+    "uploaded directly — no hosting needed). Multi-view: `image_urls` OR `image_paths`, " +
+    "ordered [front, left, back, right] (2–4 views). Multi-view is only supported by tripo*, " +
+    "meshy6, and hunyuan-3.x engines — others return 400. Local files win over URLs. Then " +
+    "wait_for_asset and read files.model. Costs credits — see list_models(category='3d').",
   {
-    image_url: z.string().url().optional(),
+    image_url: z.string().url().optional().describe("single hosted image URL"),
     image_path: z
       .string()
       .optional()
-      .describe("absolute path to a local image file (≤20MB)"),
+      .describe("absolute path to a single local image file (≤20MB)"),
+    image_urls: z
+      .array(z.string().url())
+      .min(2)
+      .max(4)
+      .optional()
+      .describe("multi-view: 2–4 hosted image URLs, ordered [front, left, back, right]"),
+    image_paths: z
+      .array(z.string())
+      .min(2)
+      .max(4)
+      .optional()
+      .describe(
+        "multi-view: 2–4 local image file paths (each ≤20MB), ordered [front, left, back, right]",
+      ),
     engine: z.string().optional(),
     polycount: z.number().int().positive().optional(),
     texture: z.boolean().default(true),
   },
-  async ({ image_url, image_path, engine, polycount, texture }) =>
+  async ({ image_url, image_path, image_urls, image_paths, engine, polycount, texture }) =>
     run(async () => {
-      if (!image_url && !image_path) {
-        throw new PicoBerryError("Provide either image_url or image_path.");
+      // Resolve source images with the same precedence as the backend facade:
+      // local files > hosted URLs, and multi-view arrays > single fields.
+      const paths = image_paths?.length
+        ? image_paths
+        : image_path
+          ? [image_path]
+          : [];
+      const urls = image_urls?.length ? image_urls : image_url ? [image_url] : [];
+      if (!paths.length && !urls.length) {
+        throw new PicoBerryError(
+          "Provide one of: image_url / image_path (single), or image_urls / image_paths (2–4 views).",
+        );
       }
-      if (image_path) {
-        const buf = await readFile(image_path);
+      // Local files → multipart. Single uses the `image` part, multi-view `images`.
+      if (paths.length) {
         const form = new FormData();
-        form.append("image", new Blob([buf]), basename(image_path));
+        const field = paths.length > 1 ? "images" : "image";
+        for (const p of paths) {
+          form.append(field, new Blob([await readFile(p)]), basename(p));
+        }
         if (engine) form.append("engine", engine);
         if (polycount) form.append("polycount", String(polycount));
         form.append("texture", String(texture));
         return (await client.request("POST", "/v1/models/from-image", { form })).data;
       }
-      return (
-        await client.request("POST", "/v1/models/from-image", {
-          json: {
-            imageUrl: image_url,
-            ...(engine ? { engine } : {}),
-            ...(polycount ? { polycount } : {}),
-            texture,
-          },
-        })
-      ).data;
+      // Hosted URLs → JSON. Single uses `imageUrl`, multi-view `imageUrls`.
+      const json = {
+        ...(urls.length > 1 ? { imageUrls: urls } : { imageUrl: urls[0] }),
+        ...(engine ? { engine } : {}),
+        ...(polycount ? { polycount } : {}),
+        texture,
+      };
+      return (await client.request("POST", "/v1/models/from-image", { json })).data;
     }),
 );
 

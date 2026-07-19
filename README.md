@@ -62,7 +62,7 @@ subscription. (An active paid subscription works too, of course.)
 | `get_credits` | Current credit balance + plan. |
 | `generate_image` | Text → image (+ optional reference image URLs). |
 | `generate_3d_from_text` | Text → 3D model (GLB). |
-| `generate_3d_from_image` | Image → 3D model. Pass `image_url` or a local `image_path`. |
+| `generate_3d_from_image` | Image → 3D model. Single: `image_url` or local `image_path`. Multi-view (2–4 views, higher fidelity): `image_urls` or `image_paths`, ordered [front, left, back, right] — tripo\*/meshy6/hunyuan-3.x only. |
 | `remesh` | Retopologize an existing 3D asset → new asset. |
 | `texture` | Re-texture (PBR) an existing 3D asset → new asset. |
 | `animate` | Auto-rig + animate an existing 3D character → new asset. |
