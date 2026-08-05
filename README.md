@@ -4,11 +4,15 @@
 
 <h1 align="center">PicoBerry MCP Server</h1>
 
-Generate **game-ready 3D models, images, and animations** from any MCP client —
-Claude Code, Cursor, Claude Desktop, Cline — with no HTTP glue. A thin wrapper
-over the [PicoBerry](https://picoberry.ai) `/v1` API, so you get PicoBerry's
+Generate **3D models, images, and animations** for game and 3D workflows from any
+MCP client — Claude Code, Cursor, Claude Desktop, Cline — with no HTTP glue. A thin
+wrapper over the [PicoBerry](https://picoberry.ai) `/v1` API, so you get PicoBerry's
 multi-engine pipeline directly inside your agent. Several 3D and image engines
 sit behind one API; call `list_models` for the live set and each engine's cost.
+Generated assets are drafts — useful for prototyping and iteration, and can be
+reviewed or refined for your project.
+
+📖 **Full reference:** [API + MCP docs](https://api.picoberry.ai/docs/mcp) · [PicoBerry API](https://api.picoberry.ai/docs)
 
 > **There's no separate subscription for the MCP or the API.** Generation spends
 > the same prepaid PicoBerry credits as the web app, per engine, at rates you can
@@ -89,7 +93,7 @@ actionable message (e.g. an unknown engine returns the list of valid names).
 
 ```
 list_models(category="3d")                         → pick an engine
-generate_3d_from_text(prompt="low-poly treasure chest, game ready")  → { id: A }
+generate_3d_from_text(prompt="low-poly treasure chest")  → { id: A }
 wait_for_asset(asset_id=A)                          → taskStatus 2
 remesh(asset_id=A, polycount=3000)                  → { id: B }
 wait_for_asset(asset_id=B)
