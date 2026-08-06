@@ -65,7 +65,7 @@ async function run(fn: () => Promise<unknown>): Promise<ToolResult> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const server = new McpServer({ name: "picoberry", version: "0.1.3" });
+const server = new McpServer({ name: "picoberry", version: "0.1.4" });
 
 /* ------------------------------ Discovery ------------------------------ */
 
@@ -74,7 +74,7 @@ server.tool(
   "List available generation engines/models and their credit cost for a category. " +
     "Call this before generating instead of hardcoding engine names. Returns " +
     "[{ name, label, cost, paidOnly, ... }] — use `name` as the engine/model value.",
-  { category: z.enum(["3d", "image", "remesh", "texture", "animate"]).default("3d") },
+  { category: z.enum(["3d", "image", "parts-board", "remesh", "texture", "animate"]).default("3d") },
   async ({ category }) =>
     run(async () => (await client.request("GET", "/v1/models", { query: { category } })).data),
 );
@@ -243,6 +243,45 @@ server.tool(
         texture,
       };
       return (await client.request("POST", "/v1/models/from-image", { json })).data;
+    }),
+);
+
+server.tool(
+  "parts_board",
+  'Decompose one reference image into an exploded "parts board" image (async) — the ' +
+    "subject laid out as separated components on one canvas. Input: `asset_id` (an existing " +
+    "IMAGE asset you own), `image_url` (a public http/https image), OR `image_path` (a local " +
+    "file, uploaded directly). Engine/resolution/prompt are server-fixed — no params. Returns " +
+    "an asset { id }; call wait_for_asset (or poll get_asset) until taskStatus=2 and read " +
+    "files.image (the board PNG). Feed that image to generate_3d_from_image for a " +
+    "parts-separated mesh. Costs 80 credits — see list_models(category='parts-board'). " +
+    "Precedence when several are set: image_path > asset_id > image_url.",
+  {
+    asset_id: z
+      .string()
+      .optional()
+      .describe("id of an existing IMAGE asset you own to decompose"),
+    image_url: z.string().url().optional().describe("public http/https source image URL"),
+    image_path: z
+      .string()
+      .optional()
+      .describe("absolute path to a local image file (≤20MB), uploaded directly"),
+  },
+  async ({ asset_id, image_url, image_path }) =>
+    run(async () => {
+      if (!asset_id && !image_url && !image_path) {
+        throw new PicoBerryError(
+          "Provide one of: asset_id, image_url, or image_path.",
+        );
+      }
+      // Precedence mirrors the backend facade: local file > asset_id > image_url.
+      if (image_path) {
+        const form = new FormData();
+        form.append("image", new Blob([await readFile(image_path)]), basename(image_path));
+        return (await client.request("POST", "/v1/images/parts-board", { form })).data;
+      }
+      const json = asset_id ? { assetId: asset_id } : { imageUrl: image_url };
+      return (await client.request("POST", "/v1/images/parts-board", { json })).data;
     }),
 );
 
