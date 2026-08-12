@@ -65,7 +65,7 @@ async function run(fn: () => Promise<unknown>): Promise<ToolResult> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const server = new McpServer({ name: "picoberry", version: "0.1.4" });
+const server = new McpServer({ name: "picoberry", version: "0.1.5" });
 
 /* ------------------------------ Discovery ------------------------------ */
 
