@@ -3,7 +3,7 @@
   "name": "io.github.UModeler/picoberry-mcp",
   "title": "PicoBerry",
   "description": "An AI 3D workspace for games, VR, and beyond. Generate, remesh, texture, and animate 3D assets.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "repository": {
     "url": "https://github.com/UModeler/picoberry-mcp",
     "source": "github"
@@ -22,7 +22,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@picoberry/mcp-server",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "transport": {
         "type": "stdio"
       },

@@ -1,6 +1,6 @@
 {
   "name": "@picoberry/mcp-server",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "PicoBerry MCP server — an AI 3D workspace for games, VR, and beyond, from any MCP client. Generate, remesh, texture, and animate 3D assets; several engines behind one API (query list_models for the live set). A thin wrapper over the PicoBerry /v1 API.",
   "mcpName": "io.github.UModeler/picoberry-mcp",
   "type": "module",
