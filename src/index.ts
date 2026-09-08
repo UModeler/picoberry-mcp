@@ -73,8 +73,30 @@ server.tool(
   "list_models",
   "List available generation engines/models and their credit cost for a category. " +
     "Call this before generating instead of hardcoding engine names. Returns " +
-    "[{ name, label, cost, paidOnly, ... }] — use `name` as the engine/model value.",
-  { category: z.enum(["3d", "image", "parts-board", "remesh", "texture", "animate"]).default("3d") },
+    "[{ name, label, cost, paidOnly, supportsMultiView, supportsUltraMode, ultraCost, ... }] " +
+    "— use `name` as the engine/model value. NOTE: the two 3D surfaces are SEPARATE " +
+    "catalogs — `3d` is text-to-3D, `image-to-3d` is image-to-3D. An unrecognized " +
+    "category silently falls back to `3d`, so a guessed value returns a plausible list " +
+    "that is missing image-only engines.",
+  {
+    category: z
+      .enum([
+        "3d",
+        "image-to-3d",
+        "image",
+        "parts-board",
+        "remesh",
+        "texture",
+        "animate",
+        "uv-unwrap",
+      ])
+      .default("3d")
+      .describe(
+        "`3d` lists TEXT-to-3D engines only. Engines whose vendor takes image input " +
+          "alone (e.g. meshy-7) have no text-to-3D row and appear ONLY under " +
+          "`image-to-3d` — use that before generate_3d_from_image.",
+      ),
+  },
   async ({ category }) =>
     run(async () => (await client.request("GET", "/v1/models", { query: { category } })).data),
 );
@@ -155,7 +177,7 @@ server.tool(
     engine: z
       .string()
       .optional()
-      .describe("engine name from list_models(category='3d')"),
+      .describe("engine name from list_models(category='3d') — the text-to-3D catalog"),
     polycount: z.number().int().positive().optional(),
     texture: z.boolean().default(true),
   },
@@ -181,9 +203,11 @@ server.tool(
     "(multi-view → higher-fidelity geometry), async. Single: `image_url` (any public " +
     "http/https image, or a prior generation's files.image) OR `image_path` (a local file, " +
     "uploaded directly — no hosting needed). Multi-view: `image_urls` OR `image_paths`, " +
-    "ordered [front, left, back, right] (2–4 views). Multi-view is only supported by tripo*, " +
-    "meshy6, and hunyuan-3.x engines — others return 400. Local files win over URLs. Then " +
-    "wait_for_asset and read files.model. Costs credits — see list_models(category='3d').",
+    "ordered [front, left, back, right] (2–4 views). Not every engine takes multi-view — " +
+    "check `supportsMultiView` from list_models(category='image-to-3d'); unsupported " +
+    "engines return 400. Local files win over URLs. Then wait_for_asset and read " +
+    "files.model. Costs credits — see list_models(category='image-to-3d') (NOT " +
+    "category='3d', which is the text-to-3D catalog and omits image-only engines).",
   {
     image_url: z.string().url().optional().describe("single hosted image URL"),
     image_path: z
@@ -204,11 +228,32 @@ server.tool(
       .describe(
         "multi-view: 2–4 local image file paths (each ≤20MB), ordered [front, left, back, right]",
       ),
-    engine: z.string().optional(),
+    engine: z
+      .string()
+      .optional()
+      .describe("engine name from list_models(category='image-to-3d')"),
     polycount: z.number().int().positive().optional(),
     texture: z.boolean().default(true),
+    ultra_mode: z
+      .boolean()
+      .optional()
+      .describe(
+        "higher-fidelity geometry. Only engines whose list_models entry has " +
+          "supportsUltraMode (currently meshy-7), and SINGLE image only — the vendor " +
+          "scopes it to one input image. Adds that entry's ultraCost credits. " +
+          "Combining it with another engine or with multi-view returns 400.",
+      ),
   },
-  async ({ image_url, image_path, image_urls, image_paths, engine, polycount, texture }) =>
+  async ({
+    image_url,
+    image_path,
+    image_urls,
+    image_paths,
+    engine,
+    polycount,
+    texture,
+    ultra_mode,
+  }) =>
     run(async () => {
       // Resolve source images with the same precedence as the backend facade:
       // local files > hosted URLs, and multi-view arrays > single fields.
@@ -233,6 +278,7 @@ server.tool(
         if (engine) form.append("engine", engine);
         if (polycount) form.append("polycount", String(polycount));
         form.append("texture", String(texture));
+        if (ultra_mode) form.append("ultraMode", "true");
         return (await client.request("POST", "/v1/models/from-image", { form })).data;
       }
       // Hosted URLs → JSON. Single uses `imageUrl`, multi-view `imageUrls`.
@@ -241,6 +287,7 @@ server.tool(
         ...(engine ? { engine } : {}),
         ...(polycount ? { polycount } : {}),
         texture,
+        ...(ultra_mode ? { ultraMode: true } : {}),
       };
       return (await client.request("POST", "/v1/models/from-image", { json })).data;
     }),
