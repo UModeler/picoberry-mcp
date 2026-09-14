@@ -142,12 +142,23 @@ server.tool(
     "Costs credits — see list_models(category='image'). Omit `model` for the default. " +
     "Up to 4 reference image URLs can guide the result (best with nano-banana).",
   {
-    prompt: z.string().max(5000),
+    // 4000 = the backend's pre-charge cap (createWithTextToImage); it used to
+    // say 5000 here while the server rejected anything over 4000.
+    prompt: z.string().max(4000),
     model: z
       .string()
       .optional()
       .describe("engine name from list_models(category='image')"),
-    aspect_ratio: z.string().optional().describe('e.g. "1:1", "16:9", "9:16"'),
+    aspect_ratio: z
+      .string()
+      .regex(/^[1-9]\d?:[1-9]\d?$/, 'W:H with 1-2 digit integers, e.g. "16:9"')
+      .optional()
+      .describe(
+        'W:H, e.g. "1:1", "16:9", "9:16", "21:9". Use a value from the model\'s ' +
+          "supportedAspectRatios in list_models(category='image') — nano-banana " +
+          'models reject anything else with 400 before charging credits; gpt-image-* ' +
+          'buckets any ratio to its nearest of three output sizes.',
+      ),
     reference_image_urls: z.array(z.string().url()).max(4).optional(),
   },
   async ({ prompt, model, aspect_ratio, reference_image_urls }) =>
