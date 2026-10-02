@@ -6,21 +6,36 @@
  * the list of valid engine names in `error.message`).
  */
 
+import { VERSION } from "./version.js";
+
 export interface PbEnvelope<T> {
   success: boolean;
   data?: T;
   totalCount?: number;
-  error?: { code?: string; message?: string; httpStatus?: number };
+  error?: {
+    code?: string;
+    message?: string;
+    httpStatus?: number;
+    /** Live numbers behind some failures — e.g. 14001 `{ required, available, topUpUrl }`. */
+    details?: Record<string, unknown>;
+  };
 }
 
 export class PicoBerryError extends Error {
   code?: string;
   httpStatus?: number;
-  constructor(message: string, code?: string, httpStatus?: number) {
+  details?: Record<string, unknown>;
+  constructor(
+    message: string,
+    code?: string,
+    httpStatus?: number,
+    details?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = "PicoBerryError";
     this.code = code;
     this.httpStatus = httpStatus;
+    this.details = details;
   }
 }
 
@@ -52,6 +67,8 @@ export class PicoBerryClient {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       Accept: "application/json",
+      // Lets the API tell MCP traffic apart from direct /v1 calls.
+      "User-Agent": `picoberry-mcp/${VERSION}`,
     };
     let body: string | FormData | undefined;
     if (opts.json !== undefined) {
@@ -90,6 +107,7 @@ export class PicoBerryClient {
         message,
         env?.error?.code,
         env?.error?.httpStatus ?? res.status,
+        env?.error?.details,
       );
     }
 

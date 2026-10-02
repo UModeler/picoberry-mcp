@@ -63,7 +63,7 @@ subscription. (An active paid subscription works too, of course.)
 |------|--------------|
 | `list_models` | Engines + credit cost for a category (`3d` / `image` / `parts-board` / `remesh` / `texture` / `animate`). Call before generating — don't hardcode engines. |
 | `list_animation_presets` | Animation preset ids (engine-specific), with optional substring filter. |
-| `get_credits` | Current credit balance + plan. |
+| `get_credits` | Current credit balance. |
 | `generate_image` | Text → image (+ optional reference image URLs). |
 | `generate_3d_from_text` | Text → 3D model (GLB). |
 | `generate_3d_from_image` | Image → 3D model. Single: `image_url` or local `image_path`. Multi-view (2–4 views, higher fidelity): `image_urls` or `image_paths`, ordered [front, left, back, right] — tripo\*/meshy6/hunyuan-3.x only. |

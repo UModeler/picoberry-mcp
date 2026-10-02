@@ -16,6 +16,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 import { PicoBerryClient, PicoBerryError } from "./client.js";
+import { VERSION } from "./version.js";
 
 const API_KEY = process.env.PICOBERRY_API_KEY;
 // Default to the documented, branded host. `saas-api.umodeler.com` serves the
@@ -51,13 +52,36 @@ const fail = (message: string): ToolResult => ({
   isError: true,
 });
 
+/**
+ * Spell out `error.details` so the agent can act on it instead of guessing. Out of
+ * credits (14001) carries what the job needed and where the user can top up — an
+ * unattended agent must stop and tell the person rather than retry. Other codes
+ * (e.g. 13002's live concurrency ceiling) are passed through as-is.
+ */
+function describeDetails(e: PicoBerryError): string {
+  const d = e.details;
+  if (!d || typeof d !== "object" || !Object.keys(d).length) return "";
+  if (String(e.code) === "14001") {
+    const parts: string[] = [];
+    if (typeof d.required === "number") parts.push(`the job needs ${d.required} credits`);
+    if (typeof d.available === "number") parts.push(`${d.available} available`);
+    const need = parts.length ? ` — ${parts.join(", ")}.` : ".";
+    const where =
+      typeof d.topUpUrl === "string" ? ` The user can top up at ${d.topUpUrl}.` : "";
+    return `${need} Don't retry until the balance is topped up.${where}`;
+  }
+  return ` (details: ${JSON.stringify(d)})`;
+}
+
 /** Run a tool body, mapping PicoBerry/unexpected errors into an actionable text result. */
 async function run(fn: () => Promise<unknown>): Promise<ToolResult> {
   try {
     return ok(await fn());
   } catch (e) {
     if (e instanceof PicoBerryError) {
-      return fail(`PicoBerry error${e.code ? ` [${e.code}]` : ""}: ${e.message}`);
+      return fail(
+        `PicoBerry error${e.code ? ` [${e.code}]` : ""}: ${e.message}${describeDetails(e)}`,
+      );
     }
     return fail(`Unexpected error: ${(e as Error).message}`);
   }
@@ -65,7 +89,7 @@ async function run(fn: () => Promise<unknown>): Promise<ToolResult> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const server = new McpServer({ name: "picoberry", version: "0.1.5" });
+const server = new McpServer({ name: "picoberry", version: VERSION });
 
 /* ------------------------------ Discovery ------------------------------ */
 
@@ -128,7 +152,7 @@ server.tool(
 
 server.tool(
   "get_credits",
-  "Get the current PicoBerry credit balance and plan for the authenticated key.",
+  "Get the current PicoBerry credit balance for the authenticated key.",
   {},
   async () => run(async () => (await client.request("GET", "/v1/credits")).data),
 );
