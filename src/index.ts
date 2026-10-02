@@ -52,25 +52,45 @@ const fail = (message: string): ToolResult => ({
   isError: true,
 });
 
+/** A top-up link is only relayed when it points at PicoBerry over https. */
+function isPicoBerryUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const u = new URL(value);
+    return (
+      u.protocol === "https:" &&
+      (u.hostname === "picoberry.ai" || u.hostname.endsWith(".picoberry.ai"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Spell out `error.details` so the agent can act on it instead of guessing. Out of
  * credits (14001) carries what the job needed and where the user can top up — an
  * unattended agent must stop and tell the person rather than retry. Other codes
- * (e.g. 13002's live concurrency ceiling) are passed through as-is.
+ * (e.g. 13002's live concurrency ceiling) pass through their numbers only: details
+ * can also carry other people's free text (a teammate's display name), which must
+ * never reach the agent as if it were an instruction.
  */
 function describeDetails(e: PicoBerryError): string {
   const d = e.details;
-  if (!d || typeof d !== "object" || !Object.keys(d).length) return "";
+  if (!d || typeof d !== "object") return "";
   if (String(e.code) === "14001") {
     const parts: string[] = [];
     if (typeof d.required === "number") parts.push(`the job needs ${d.required} credits`);
     if (typeof d.available === "number") parts.push(`${d.available} available`);
     const need = parts.length ? ` — ${parts.join(", ")}.` : ".";
-    const where =
-      typeof d.topUpUrl === "string" ? ` The user can top up at ${d.topUpUrl}.` : "";
+    const where = isPicoBerryUrl(d.topUpUrl)
+      ? ` The user can top up at ${d.topUpUrl}.`
+      : "";
     return `${need} Don't retry until the balance is topped up.${where}`;
   }
-  return ` (details: ${JSON.stringify(d)})`;
+  const safe = Object.fromEntries(
+    Object.entries(d).filter(([, v]) => typeof v === "number" || typeof v === "boolean"),
+  );
+  return Object.keys(safe).length ? ` (details: ${JSON.stringify(safe)})` : "";
 }
 
 /** Run a tool body, mapping PicoBerry/unexpected errors into an actionable text result. */
