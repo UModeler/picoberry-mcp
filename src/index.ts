@@ -184,7 +184,12 @@ server.tool(
   "Generate a 2D image from a text prompt (async). Returns an asset { id }; then call " +
     "wait_for_asset (or poll get_asset) until taskStatus=2 and read files.image (PNG URL). " +
     "Costs credits — see list_models(category='image'). Omit `model` for the default. " +
-    "Up to 4 reference image URLs can guide the result (best with nano-banana).",
+    "Up to 4 reference image URLs can guide the result (best with nano-banana). " +
+    "Set `count` (1–4) for several images from one call: the top-level fields stay the " +
+    "first image and `assets[]` lists every image (same batchId) — wait_for_asset on each id. " +
+    "Each image is billed separately; if the balance can't cover all of them nothing is " +
+    "charged. A count above the plan's image slots fails with 400 (don't retry); a busy " +
+    "queue fails with 429 (retry later).",
   {
     // 4000 = the backend's pre-charge cap (createWithTextToImage); it used to
     // say 5000 here while the server rejected anything over 4000.
@@ -204,8 +209,20 @@ server.tool(
           'buckets any ratio to its nearest of three output sizes.',
       ),
     reference_image_urls: z.array(z.string().url()).max(4).optional(),
+    // 4 = the backend's MAX_IMAGES_PER_REQUEST. Only sent when set, so a call
+    // without it keeps the old single-image response (no assets[]).
+    count: z
+      .number()
+      .int()
+      .min(1)
+      .max(4)
+      .optional()
+      .describe(
+        "images to make in this call, 1–4 (default 1). Needs that many free image " +
+          "slots on the plan (Free 1 · Starter 3 · Pro 6 · Max 15).",
+      ),
   },
-  async ({ prompt, model, aspect_ratio, reference_image_urls }) =>
+  async ({ prompt, model, aspect_ratio, reference_image_urls, count }) =>
     run(
       async () =>
         (
@@ -215,6 +232,7 @@ server.tool(
               ...(model ? { model } : {}),
               ...(aspect_ratio ? { aspectRatio: aspect_ratio } : {}),
               ...(reference_image_urls ? { referenceImages: reference_image_urls } : {}),
+              ...(count != null ? { count } : {}),
             },
           })
         ).data,

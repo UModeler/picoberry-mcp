@@ -29,9 +29,16 @@ const fail = (code, httpStatus, message, details) => ({
   success: false,
   error: { code, message, httpStatus, details },
 });
-const stub = http.createServer((req, res) => {
-  seen.push({ method: req.method, url: req.url, ua: req.headers["user-agent"] });
+const stub = http.createServer(async (req, res) => {
+  let raw = "";
+  for await (const chunk of req) raw += chunk;
+  const body = raw ? JSON.parse(raw) : undefined;
+  seen.push({ method: req.method, url: req.url, ua: req.headers["user-agent"], body });
   const { method, url } = req;
+  if (method === "POST" && url.startsWith("/v1/images") && body?.count != null) {
+    const assets = Array.from({ length: body.count }, (_, i) => ({ id: `img${i + 1}`, type: 1, batchId: "b1" }));
+    return reply(res, 200, { success: true, data: { ...assets[0], assets } });
+  }
   if (method === "GET" && url.startsWith("/v1/credits"))
     return reply(res, 200, { success: true, data: { balance: 45 } });
   if (method === "POST" && url.startsWith("/v1/models/from-text"))
@@ -83,6 +90,17 @@ check("a non-PicoBerry top-up link is not relayed", /needs 300 credits/.test(tex
 
 const img = await client.callTool({ name: "generate_image", arguments: { prompt: "a red apple" } });
 check("other codes keep their numeric details", /\[13002\]/.test(text(img)) && /"maxTotal":3/.test(text(img)), text(img));
+check("generate_image without count sends no count", seen.at(-1)?.body && !("count" in seen.at(-1).body),
+  JSON.stringify(seen.at(-1)?.body));
+
+const imgs = await client.callTool({ name: "generate_image", arguments: { prompt: "a red apple", count: 3 } });
+check("generate_image forwards count", seen.at(-1)?.body?.count === 3, JSON.stringify(seen.at(-1)?.body));
+check("count response keeps the first image on top and lists every image",
+  !imgs.isError && JSON.parse(text(imgs)).id === "img1" && JSON.parse(text(imgs)).assets?.length === 3, text(imgs));
+
+const before = seen.length;
+const tooMany = await client.callTool({ name: "generate_image", arguments: { prompt: "a red apple", count: 5 } });
+check("count above 4 is rejected before any request", tooMany.isError === true && seen.length === before, text(tooMany));
 
 const rem = await client.callTool({ name: "remesh", arguments: { asset_id: "a1" } });
 check("free text in details never reaches the agent",
