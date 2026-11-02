@@ -478,7 +478,9 @@ server.tool(
       .optional()
       .describe(
         "preset id from list_animation_presets for this engine's family. Required by " +
-          "pb-rig-animate / pb-retarget; pb-rig takes none (400).",
+          "pb-rig-animate / pb-retarget, which accept only ids that " +
+          "list_animation_presets(engine='pb') lists (any other id: 400 before charging); " +
+          "pb-rig takes none (400).",
       ),
     engine: z.string().optional(),
     body: z
@@ -486,7 +488,7 @@ server.tool(
       .optional()
       .describe(
         "PB Animation only (engine pb-rig or pb-rig-animate): what you are rigging — " +
-          "humanoid (default), quadruped (four-legged: a dog, a horse, a dragon …) or " +
+          "humanoid (default), quadruped (four-legged: a dog, a horse, a tiger …) or " +
           "other. quadruped and other are rig-only for now: use pb-rig. Any other engine " +
           "rejects body with 400 — Tripo/Meshy rig humanoids only, and pb-retarget keeps " +
           "the body of the rig it plays on.",
