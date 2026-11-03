@@ -62,7 +62,7 @@ subscription. (An active paid subscription works too, of course.)
 | Tool | What it does |
 |------|--------------|
 | `list_models` | Engines + credit cost for a category (`3d` / `image` / `parts-board` / `remesh` / `texture` / `animate`). Call before generating — don't hardcode engines. |
-| `list_animation_presets` | Animation preset ids (engine-specific), with optional substring filter. |
+| `list_animation_presets` | Animation preset ids, per engine family (`tripo` / `meshy` / `pb`), with optional substring filter. `pb` is PB Animation's motion list; each item carries `body`. |
 | `get_credits` | Current credit balance. |
 | `generate_image` | Text → image (+ optional reference image URLs). `count` (1–4) makes several images in one call → `assets[]`, wait on each id. |
 | `generate_3d_from_text` | Text → 3D model (GLB). |
@@ -70,7 +70,7 @@ subscription. (An active paid subscription works too, of course.)
 | `parts_board` | Decompose one image into an exploded parts-board image (server-fixed engine). Input `asset_id`, `image_url`, or local `image_path`; feed the result to `generate_3d_from_image` for a parts-separated mesh. |
 | `remesh` | Retopologize an existing 3D asset → new asset. |
 | `texture` | Re-texture (PBR) an existing 3D asset → new asset. |
-| `animate` | Auto-rig + animate an existing 3D character → new asset. |
+| `animate` | Auto-rig (+ optionally animate) an existing 3D asset → new asset. Tripo/Meshy rig humanoids; PB Animation (`pb-rig` + `body`: `humanoid` / `quadruped` / `other`) also rigs four-legged and other characters — quadrupeds are rig-only for now. |
 | `get_asset` | Status + result URLs for one asset. |
 | `wait_for_asset` | Poll until an asset finishes (or times out), then return it. |
 | `list_my_assets` | Browse your generated assets. |

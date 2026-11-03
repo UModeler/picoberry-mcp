@@ -148,10 +148,14 @@ server.tool(
 server.tool(
   "list_animation_presets",
   "List animation preset ids for the `animate` tool. Presets are engine-specific " +
-    "(Tripo ~97 / Meshy ~675) — pick one from the SAME engine you animate with. " +
-    "Optionally filter with a case-insensitive substring.",
+    "(Tripo ~97 / Meshy ~675 / PB ~900) — pick one from the SAME engine family you " +
+    "animate with: tripo-* → 'tripo', meshy-* → 'meshy', pb-rig-animate / pb-retarget → " +
+    "'pb'. 'pb' is PB Animation's motion list as picoberry.ai shows it; each item " +
+    "carries `body` (the rig the motion plays on — humanoid for every motion listed, " +
+    "as four-legged motions aren't available yet). Optionally filter with a " +
+    "case-insensitive substring.",
   {
-    engine: z.enum(["tripo", "meshy"]).default("tripo"),
+    engine: z.enum(["tripo", "meshy", "pb"]).default("tripo"),
     search: z
       .string()
       .optional()
@@ -456,15 +460,41 @@ server.tool(
 
 server.tool(
   "animate",
-  "Auto-rig an existing 3D character asset and apply an animation, producing a NEW asset " +
-    "(async). Pick `preset` from list_animation_presets for the SAME engine. Costs credits " +
-    "— see list_models(category='animate'). wait_for_asset → files.model.",
+  "Auto-rig an existing 3D character asset and optionally apply an animation, producing " +
+    "a NEW asset (async). Engines (names + cost: list_models(category='animate')): `-rig` " +
+    "rigs only, `-rig-animate` rigs and applies `preset`, `-retarget` plays `preset` on " +
+    "an asset the SAME engine already rigged (pass that rigged asset's id). Tripo and " +
+    "Meshy rig humanoids only. PB Animation also rigs other bodies: pb-rig (rig only, " +
+    "with `body`), pb-rig-animate (a humanoid rig + one motion), pb-retarget (another " +
+    "motion on a PB rig). To rig a four-legged character use engine='pb-rig', " +
+    "body='quadruped' — four-legged motions aren't available yet, so a quadruped is " +
+    "rig-only and a motion request on one returns 400 before charging. Pick `preset` " +
+    "from list_animation_presets for the SAME engine family ('pb' for pb-*). Costs " +
+    "credits. wait_for_asset → files.model.",
   {
     asset_id: z.string(),
-    preset: z.string().optional(),
+    preset: z
+      .string()
+      .optional()
+      .describe(
+        "preset id from list_animation_presets for this engine's family. Required by " +
+          "pb-rig-animate / pb-retarget, which accept only ids that " +
+          "list_animation_presets(engine='pb') lists (any other id: 400 before charging); " +
+          "pb-rig takes none (400).",
+      ),
     engine: z.string().optional(),
+    body: z
+      .enum(["humanoid", "quadruped", "other"])
+      .optional()
+      .describe(
+        "PB Animation only (engine pb-rig or pb-rig-animate): what you are rigging — " +
+          "humanoid (default), quadruped (four-legged: a dog, a horse, a tiger …) or " +
+          "other. quadruped and other are rig-only for now: use pb-rig. Any other engine " +
+          "rejects body with 400 — Tripo/Meshy rig humanoids only, and pb-retarget keeps " +
+          "the body of the rig it plays on.",
+      ),
   },
-  async ({ asset_id, preset, engine }) =>
+  async ({ asset_id, preset, engine, body }) =>
     run(
       async () =>
         (
@@ -472,6 +502,7 @@ server.tool(
             json: {
               ...(preset ? { preset } : {}),
               ...(engine ? { engine } : {}),
+              ...(body ? { body } : {}),
             },
           })
         ).data,

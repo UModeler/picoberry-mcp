@@ -49,6 +49,16 @@ const stub = http.createServer(async (req, res) => {
       { required: 300, available: 10, topUpUrl: "https://evil.example/pay" }));
   if (method === "POST" && url.startsWith("/v1/images"))
     return reply(res, 429, fail(13002, 429, "Generation queue is full", { total: 3, maxTotal: 3 }));
+  if (method === "GET" && url.startsWith("/v1/animations"))
+    return reply(res, 200, {
+      success: true,
+      data: [
+        { id: "walk", name: "Walk", category: "Movement", engine: "pb", body: "humanoid" },
+        { id: "run", name: "Run", category: "Movement", engine: "pb", body: "humanoid" },
+      ],
+    });
+  if (method === "POST" && /\/v1\/assets\/[^/]+\/animate/.test(url))
+    return reply(res, 200, { success: true, data: { id: "anim1", taskStatus: 0 } });
   if (method === "POST" && /\/v1\/assets\/[^/]+\/remesh/.test(url))
     return reply(res, 409, fail(13010, 409, "Asset is in use", {
       total: 2,
@@ -105,6 +115,25 @@ check("count above 4 is rejected before any request", tooMany.isError === true &
 const rem = await client.callTool({ name: "remesh", arguments: { asset_id: "a1" } });
 check("free text in details never reaches the agent",
   !/IGNORE PREVIOUS/i.test(text(rem)) && /"total":2/.test(text(rem)), text(rem));
+
+// PB Animation — the motion list and the body to rig (a four-legged rig is pb-rig + body).
+const pbList = await client.callTool({ name: "list_animation_presets", arguments: { engine: "pb", search: "walk" } });
+check("list_animation_presets asks for engine=pb", /[?&]engine=pb(&|$)/.test(seen.at(-1)?.url ?? ""), seen.at(-1)?.url);
+check("pb presets come back filtered, with body",
+  !pbList.isError && JSON.parse(text(pbList)).length === 1 && JSON.parse(text(pbList))[0].body === "humanoid", text(pbList));
+
+const quad = await client.callTool({ name: "animate", arguments: { asset_id: "m1", engine: "pb-rig", body: "quadruped" } });
+check("animate forwards body for a four-legged PB rig",
+  !quad.isError && JSON.stringify(seen.at(-1)?.body) === JSON.stringify({ engine: "pb-rig", body: "quadruped" }),
+  JSON.stringify(seen.at(-1)?.body));
+
+await client.callTool({ name: "animate", arguments: { asset_id: "m1", engine: "pb-rig-animate", preset: "walk" } });
+check("animate without body sends no body", seen.at(-1)?.body && !("body" in seen.at(-1).body),
+  JSON.stringify(seen.at(-1)?.body));
+
+const beforeBody = seen.length;
+const badBody = await client.callTool({ name: "animate", arguments: { asset_id: "m1", engine: "pb-rig", body: "dog" } });
+check("an unknown body is rejected before any request", badBody.isError === true && seen.length === beforeBody, text(badBody));
 
 await client.close();
 stub.close();
